@@ -4,11 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
 )
+
+const LOGFILENAME string = "./resources/Logs.json"
+const ENTRYDATAFILENAME string = "./resources/EntryInfo.json"
+const APIKEYFILENAME string = "./resources/apikey.txt"
 
 //When no arguments are passed to get-event.
 type EntryInformation struct {
@@ -37,26 +45,111 @@ type NewJSONData struct {
 }
 
 func main() {
-	APIKey, err := getAPIKey("https://challenger.btbsecurity.com/auth")
+	ConnectToAPI()
 
-	if err != nil {
-		//obligated to use variables.
-		fmt.Println("Sorry! There was an error: ", err)
-	} else {
-		fmt.Println("Your API Key", APIKey)
+}
+
+func ConnectToAPI() {
+	if _, err := os.Stat(APIKEYFILENAME); err != nil {
+		if os.IsNotExist(err) {
+			ReceivedAPIKey, err := getAPIKey("https://challenger.btbsecurity.com/auth")
+			file, err := os.Create(APIKEYFILENAME)
+			_, err = io.WriteString(file, ReceivedAPIKey)
+			PrintError(err)
+		}
 	}
 
-	EntryInfo := getEntryCount(APIKey)
-	fmt.Println("EntryCount: ", EntryInfo.EntryCount)
-	fmt.Println("LastEntryHash: ", EntryInfo.LastEntryHash)
+	file, err := os.Open(APIKEYFILENAME)
+	PrintError(err)
+	ReadAll, err := ioutil.ReadAll(file)
 
-	LogDataJSON := getLogData(APIKey, 0, 400)
+	APIKey := string(ReadAll)
+	fmt.Println("Your API Key", APIKey)
 
-	fmt.Println("EntryCount: ", LogDataJSON[0].ID)
+	CurrentEntryInfo := getEntryCount(APIKey)
 
-	NewJSONData := cleanData(LogDataJSON)
+	/*
 
-	fmt.Println("FUN: ", NewJSONData[0].ID)
+	 "pulls all of the latest entries from the API without getting previous retrieved entries (no duplicates)."
+
+	 The API returns the value "EntryCount".
+	 With this, we can discover if new logs were generated.
+	 If so, we want to get the latest ones.
+
+	*/
+	fmt.Println("Reading entry data file.")
+
+	PreviousEntryInfoIO, err := ioutil.ReadFile(ENTRYDATAFILENAME)
+	PrintError(err)
+
+	var preventryinfo EntryInformation
+	err = json.Unmarshal(PreviousEntryInfoIO, &preventryinfo)
+	var GetLatestLogs bool
+	GetLatestLogs = false
+
+	if preventryinfo.EntryCount < CurrentEntryInfo.EntryCount {
+		CreateFileIfDoesntExist(ENTRYDATAFILENAME)
+
+		file1, _ := json.MarshalIndent(CurrentEntryInfo, "", " ")
+		_ = ioutil.WriteFile(ENTRYDATAFILENAME, file1, 0644)
+		GetLatestLogs = true
+	}
+
+	if GetLatestLogs {
+		const NumberOfEntriesToGetAtATime int = 400
+
+		fmt.Println(fmt.Sprintf("New logs available."))
+		fmt.Println(fmt.Sprintf("Old Count: %v   New Count: %v", preventryinfo.EntryCount, CurrentEntryInfo.EntryCount))
+
+		if preventryinfo.EntryCount == 0 {
+			preventryinfo.EntryCount = -1
+		}
+
+		/*
+			I found a bug with the API.
+			When you enter an amount in "from" field. Usually, it will make this the lower range.
+			However, for values like "5212", it will actually grab the entry "5211"
+		*/
+		for i := preventryinfo.EntryCount; i < CurrentEntryInfo.EntryCount; i += NumberOfEntriesToGetAtATime {
+			fmt.Println(fmt.Sprintf("Reading log id range %v through %v.", i, i+NumberOfEntriesToGetAtATime-1))
+			LogDataJSON := getLogData(APIKey, i, i+NumberOfEntriesToGetAtATime-1)
+			CleanJSONData := cleanData(LogDataJSON)
+
+			CreateFileIfDoesntExist(LOGFILENAME)
+
+			f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
+			PrintError(err)
+
+			defer f.Close()
+
+			result, err := json.Marshal(CleanJSONData)
+			PrintError(err)
+
+			var n int
+			n, err = f.WriteString(string(result))
+			if err != nil {
+				fmt.Println(n, err)
+			}
+		}
+	} else {
+		fmt.Println("The logs are up-to-date.")
+	}
+}
+func PrintError(err error) {
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func CreateFileIfDoesntExist(filename string) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		emptyFile, err := os.Create(filename)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println(emptyFile)
+		emptyFile.Close()
+	}
 }
 
 //Get API key from website
@@ -154,6 +247,7 @@ func cleanData(res []DataPulledFromAPI) []NewJSONData {
 
 	for i := range res {
 		var newEntry NewJSONData
+		newEntry.ID = res[i].ID
 		newEntry.UserName = strings.Replace(strings.ToLower(res[i].UserName), "username is: ", "", -1)
 		newEntry.SourceIp = res[i].SourceIp[0]
 		newEntry.Target = res[i].Target
@@ -165,18 +259,6 @@ func cleanData(res []DataPulledFromAPI) []NewJSONData {
 
 	return NewFormat
 }
-
-/*
-type DataPulledFromAPI_enum int32
-
-const (
-	ID        MessageType = 0
-	UserName  MessageType = 1
-	SourceIp  MessageType = 2
-	Target    MessageType = 3
-	Action    MessageType = 4
-	EventTime MessageType = 5
-)*/
 
 //https://stackoverflow.com/questions/31467326/golang-modify-json-without-struct
 //https://stackoverflow.com/questions/23287140/how-do-i-iterate-over-a-json-array-in-golang
