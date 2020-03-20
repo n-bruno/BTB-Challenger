@@ -1,82 +1,166 @@
-<meta charset="UTF-8">
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Not RADAR</title>
+    <link href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jput-2.js"></script>
 
-  <script src="js/jquery.min.js"></script>
-  <script src="js/jput-2.js"></script>
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
-  <canvas id="canvas"></canvas>
-  
-  <script>
-  
-$.getJSON("resources/Logs.json", function(jsonfile) {
-        console.log("myItems");
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
 
-        var data = jsonfile.map(function(e) {
-          return e.Action;
+    <script>
+        function UpdateChart(){
+        $.getJSON("resources/Logs.json", function (jsonfile) {
+            var Successes = 0;
+            var Failures = 0;
+
+            var UserFailures = new Object();
+            
+            for (var i = 0; i < jsonfile.length; i++) {
+                if (jsonfile[i].Action == "Login Success") {
+                    Successes++;
+                }
+                else if (jsonfile[i].Action == "Login Failure") {
+                    Failures++;
+                    
+                    if (UserFailures[jsonfile[i].UserName] == null) {
+                       UserFailures[jsonfile[i].UserName] = 0;
+                    }
+                    
+                    UserFailures[jsonfile[i].UserName]++;
+                }
+            }
+            
+            var UserFailuresSort = getSortedKeys(UserFailures);
+            
+            //console.log(UserFailures[UserFailuresSort[1]]);
+
+            var ctx = canvas.getContext('2d');
+            var configpie = {
+                type: 'pie',
+                options: {
+					title: {
+						display: true,
+						text: 'Overall Login Failure and Success Count'
+					}
+				},
+                data: {
+                    labels: ['Login Success', 'Login Failure'],
+                    datasets: [{
+                        data: [Successes, Failures],
+                        backgroundColor: ['rgba(0, 11, 204, 0.3)', 'rgba(220, 20, 60, 0.3)']
+                    }]
+                }
+            };
+            
+            
+            var configbar = {
+                type: 'bar',
+                options: {
+					title: {
+						display: true,
+						text: 'Users with the Most Login Failures (And Their Failure Amount)'
+					}
+				},
+                
+                data: {
+                    
+                    labels: [ 'Username' ],
+                    datasets: [
+                        {
+                           label: UserFailuresSort[0],
+                           data: [UserFailures[UserFailuresSort[0]]],
+                           backgroundColor: ['rgba(0, 11, 204, 0.3)' ]
+                        }, {
+                           label: UserFailuresSort[1],
+                           data: [UserFailures[UserFailuresSort[1]]],
+                           backgroundColor: ['rgba(220, 20, 60, 0.3)' ]
+                        }, {
+                           label: UserFailuresSort[2],
+                           data: [UserFailures[UserFailuresSort[2]]],
+                           backgroundColor: ['rgba(44, 12, 204, 0.3)' ]
+                        }, {
+                           label: UserFailuresSort[3],
+                           data: [UserFailures[UserFailuresSort[3]]],
+                           backgroundColor: ['rgba(220, 20, 60, 0.3)' ]
+                        }, {
+                           label: UserFailuresSort[4],
+                           data: [UserFailures[UserFailuresSort[4]]],
+                           backgroundColor: ['rgba(44, 12, 204, 0.3)' ]
+                        }
+                        
+                    ], 
+                }
+                
+            };
+
+            var ctx = document.getElementById('chart-area').getContext('2d');
+            var ctx2 = document.getElementById('chart-area2').getContext('2d');
+
+            window.myPie = new Chart(ctx, configpie);
+            
+            window.myBar = new Chart(ctx2, configbar);
+
         });
-        
-        var Successes = 0;
-        var Failures = 0;
-
-       for (var i = 0; i < data.length; i++) {
-        console.log(i);
-          if (data[i] == "Login Success") {
-            Successes++;
-          }
-          else if (data[i] == "Login Failure") {
-            Failures++;
-          }
         }
         
-        var ctx = canvas.getContext('2d');
-        var config = {
-           type: 'pie',
-           data: {
-              labels: [ 'Login Success', 'Login Failure' ],
-              datasets: [{
-                 data: [ Successes, Failures ],
-                 backgroundColor: ['rgba(0, 11, 204, 0.3)', 'rgba(220, 20, 60, 0.3)']
-              }]
-          }
-};
+        function getSortedKeys(obj) {
+          var keys = keys = Object.keys(obj);
+          return keys.sort(function(a,b){return obj[b]-obj[a]});
+        }
+        
+        UpdateChart();
+        
+    </script>
+</head>
 
+<body style="margin:20px auto">
+    <div class="container">
+        <div class="row header" style="text-align:center;color:grey">
+            <h3>Charts</h3>
+        </div>
 
-			var ctx = document.getElementById('chart-area').getContext('2d');
-			window.myPie = new Chart(ctx, config);
+        <div id="canvas-holder" style="width:20%">
+            <canvas id="chart-area"></canvas>
 
-    });
-  </script>
-<html>
-<body>
-  <div id="canvas-holder" style="width:20%">
-		<canvas id="chart-area"></canvas>
-	</div>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div id="canvas-holder" style="width:60%">
+            <canvas id="chart-area2"></canvas>
+        </div>
+        
 
+        <div class="row header" style="text-align:center;color:grey">
+            <h3>ACME Logs</h3>
+        </div>
 
-<table border="1">
-         <thead>
-            <tr>
-               <td>AcmeApiId</td>
-               <td>UserName</td>
-               <td>SourceIp</td>
-               <td>Target</td>
-               <td>Action</td>
-               <td>EventTime</td>
-            </tr> 
-         </thead>
-         <tbody jput="users" jput-ajax_url="resources/Logs.json">
-            <tr>
-               <td>{{json.AcmeApiId}}</td>
-               <td>{{json.UserName}}</td>
-               <td>{{json.SourceIp}}</td>
-               <td>{{json.Target}}</td>
-               <td>{{json.Action}}</td>
-               <td>{{json.EventTime}}</td>
-            </tr>
-      </tbody>
-      <br/>
-      <br/>
-   </body>
+        <table id="myTable" class="display table" width="100%">
+            <thead>
+                <tr>
+                    <td>AcmeApiId</td>
+                    <td>UserName</td>
+                    <td>SourceIp</td>
+                    <td>Target</td>
+                    <td>Action</td>
+                    <td>EventTime</td>
+                </tr>
+            </thead>
+            <tbody jput="users" jput-ajax_url="resources/Logs.json">
+                <tr>
+                    <td>{{json.AcmeApiId}}</td>
+                    <td>{{json.UserName}}</td>
+                    <td>{{json.SourceIp}}</td>
+                    <td>{{json.Target}}</td>
+                    <td>{{json.Action}}</td>
+                    <td>{{json.EventTime}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
 </html>

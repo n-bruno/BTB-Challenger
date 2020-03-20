@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"text/template"
 	"time"
 )
 
@@ -46,7 +45,7 @@ type NewJSONData struct {
 
 func main() {
 	ConnectToAPI()
-	//DisplayPage()
+	//HostAsServer()
 }
 
 //Create a struct that holds information to be displayed in our HTML file
@@ -54,19 +53,13 @@ type Welcome struct {
 	Name string
 }
 
-func DisplayPage() {
-	welcome := Welcome{"Anonymous"}
-
-	templates := template.Must(template.ParseFiles("index.html"))
-
+func HostAsServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-		if err := templates.ExecuteTemplate(w, "index.html", welcome); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+	http.ServeFile(w, r, "index.html")
 	})
 
-	fmt.Println(http.ListenAndServe(":8080", nil))
+    log.Fatal(http.ListenAndServe(":8081", nil))
+
 }
 
 func ConnectToAPI() {
