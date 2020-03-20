@@ -9,37 +9,52 @@
   <canvas id="canvas"></canvas>
   
   <script>
+  
+$.getJSON("resources/Logs.json", function(jsonfile) {
+        console.log("myItems");
 
-var labels = jsonfile.jsonarray.map(function(e) {
-   return e.name;
-});
-var data = jsonfile.jsonarray.map(function(e) {
-   return e.age;
-});;
+        var data = jsonfile.map(function(e) {
+          return e.Action;
+        });
+        
+        var Successes = 0;
+        var Failures = 0;
 
-var ctx = canvas.getContext('2d');
-var config = {
-   type: 'line',
-   data: {
-      labels: labels,
-      datasets: [{
-         label: 'Graph Line',
-         data: data,
-         backgroundColor: 'rgba(0, 119, 204, 0.3)'
-      }]
-   }
+       for (var i = 0; i < data.length; i++) {
+        console.log(i);
+          if (data[i] == "Login Success") {
+            Successes++;
+          }
+          else if (data[i] == "Login Failure") {
+            Failures++;
+          }
+        }
+        
+        var ctx = canvas.getContext('2d');
+        var config = {
+           type: 'pie',
+           data: {
+              labels: [ 'Login Success', 'Login Failure' ],
+              datasets: [{
+                 data: [ Successes, Failures ],
+                 backgroundColor: ['rgba(0, 11, 204, 0.3)', 'rgba(220, 20, 60, 0.3)']
+              }]
+          }
 };
 
-var chart = new Chart(ctx, config);
-  
-  
-  
+
+			var ctx = document.getElementById('chart-area').getContext('2d');
+			window.myPie = new Chart(ctx, config);
+
+    });
   </script>
-  
-  
-  
 <html>
 <body>
+  <div id="canvas-holder" style="width:20%">
+		<canvas id="chart-area"></canvas>
+	</div>
+
+
 <table border="1">
          <thead>
             <tr>
