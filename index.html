@@ -1,0 +1,67 @@
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/jput-2.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
+  <canvas id="canvas"></canvas>
+  
+  <script>
+
+var labels = jsonfile.jsonarray.map(function(e) {
+   return e.name;
+});
+var data = jsonfile.jsonarray.map(function(e) {
+   return e.age;
+});;
+
+var ctx = canvas.getContext('2d');
+var config = {
+   type: 'line',
+   data: {
+      labels: labels,
+      datasets: [{
+         label: 'Graph Line',
+         data: data,
+         backgroundColor: 'rgba(0, 119, 204, 0.3)'
+      }]
+   }
+};
+
+var chart = new Chart(ctx, config);
+  
+  
+  
+  </script>
+  
+  
+  
+<html>
+<body>
+<table border="1">
+         <thead>
+            <tr>
+               <td>AcmeApiId</td>
+               <td>UserName</td>
+               <td>SourceIp</td>
+               <td>Target</td>
+               <td>Action</td>
+               <td>EventTime</td>
+            </tr> 
+         </thead>
+         <tbody jput="users" jput-ajax_url="resources/Logs.json">
+            <tr>
+               <td>{{json.AcmeApiId}}</td>
+               <td>{{json.UserName}}</td>
+               <td>{{json.SourceIp}}</td>
+               <td>{{json.Target}}</td>
+               <td>{{json.Action}}</td>
+               <td>{{json.EventTime}}</td>
+            </tr>
+      </tbody>
+      <br/>
+      <br/>
+   </body>
+</html>
