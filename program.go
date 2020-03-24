@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -50,7 +51,6 @@ func main() {
 func HostAsServer() {
 	http.Handle("/",  http.FileServer(http.Dir("./")))
     log.Fatal(http.ListenAndServe(":8081", nil))
-
 }
 
 func ConnectToAPI() {
@@ -60,98 +60,119 @@ func ConnectToAPI() {
 	fmt.Println("Your API Key: ", APIKey)
 
 
-	for ;; {
 
-		/*
+	/*
 
-		 "pulls all of the latest entries from the API without getting previous retrieved entries (no duplicates)."
+	 "pulls all of the latest entries from the API without getting previous retrieved entries (no duplicates)."
 
-		 The API returns the value "EntryCount".
-		 With this, we can discover if new logs were generated.
-		 If so, we want to get the latest ones.
+	 The API returns the value "EntryCount".
+	 With this, we can discover if new logs were generated.
+	 If so, we want to get the latest ones.
 
-		*/
-		CurrentEntryInfo := getEntryCount(APIKey)
-		fmt.Println("Reading entry data file.")
-		CreateFileIfDoesntExist(ENTRYDATAFILENAME)
+	*/
+	CurrentEntryInfo := getEntryCount(APIKey)
+	fmt.Println("Reading entry data file.")
+	CreateFileIfDoesntExist(ENTRYDATAFILENAME)
 
-		PreviousEntryInfoIO, err := ioutil.ReadFile(ENTRYDATAFILENAME)
-		PrintError(err)
+	PreviousEntryInfoIO, err := ioutil.ReadFile(ENTRYDATAFILENAME)
+	PrintError(err)
 
-		var preventryinfo EntryInformation
-		err = json.Unmarshal(PreviousEntryInfoIO, &preventryinfo)
-		var GetLatestLogs bool
-		GetLatestLogs = false
+	var preventryinfo EntryInformation
+	err = json.Unmarshal(PreviousEntryInfoIO, &preventryinfo)
+	var GetLatestLogs bool
+	GetLatestLogs = false
 
-		if preventryinfo.EntryCount < CurrentEntryInfo.EntryCount {
-			file1, _ := json.MarshalIndent(CurrentEntryInfo, "", " ")
-			_ = ioutil.WriteFile(ENTRYDATAFILENAME, file1, 0644)
-			GetLatestLogs = true
+	if preventryinfo.EntryCount < CurrentEntryInfo.EntryCount {
+		file1, _ := json.MarshalIndent(CurrentEntryInfo, "", " ")
+		_ = ioutil.WriteFile(ENTRYDATAFILENAME, file1, 0644)
+		GetLatestLogs = true
+	}
+
+	if GetLatestLogs {
+		fmt.Println(fmt.Sprintf("New logs available."))
+		fmt.Println(fmt.Sprintf("Old Count: %v   New Count: %v", preventryinfo.EntryCount, CurrentEntryInfo.EntryCount))
+
+		const NumberOfEntriesToGetAtATime int = 500
+
+		for i := preventryinfo.EntryCount; i < CurrentEntryInfo.EntryCount; i += NumberOfEntriesToGetAtATime {
+			fmt.Println(fmt.Sprintf("Reading log id range %v through %v.", i, i+NumberOfEntriesToGetAtATime-1))
+			LogDataJSON := getLogData(APIKey, i, i+NumberOfEntriesToGetAtATime-1)
+			CleanJSONData := cleanData(LogDataJSON)
+
+			CreateFileIfDoesntExist(LOGFILENAME)
+
+			f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
+
+			PrintError(err)
+			defer f.Close()
+
+			for i := 0; i < len(CleanJSONData); i++ {
+				b, _ := json.Marshal(CleanJSONData[i])
+				f.Write(b)
+				f.Write([]byte("\n"))
+			}
 		}
 
-		if GetLatestLogs {
-			fmt.Println(fmt.Sprintf("New logs available."))
-			fmt.Println(fmt.Sprintf("Old Count: %v   New Count: %v", preventryinfo.EntryCount, CurrentEntryInfo.EntryCount))
+		fmt.Println("Checking for duplicate entries")
 
-			const NumberOfEntriesToGetAtATime int = 500
+		var jsondata []NewJSONData
 
-			for i := preventryinfo.EntryCount; i < CurrentEntryInfo.EntryCount; i += NumberOfEntriesToGetAtATime {
-				fmt.Println(fmt.Sprintf("Reading log id range %v through %v.", i, i+NumberOfEntriesToGetAtATime-1))
-				LogDataJSON := getLogData(APIKey, i, i+NumberOfEntriesToGetAtATime-1)
-				CleanJSONData := cleanData(LogDataJSON)
+		file, err := ioutil.ReadFile(LOGFILENAME)
+		buf := bytes.NewBuffer(file)
+		for {
+			line, err := buf.ReadBytes('\n')
 
-				CreateFileIfDoesntExist(LOGFILENAME)
-
-				f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
-				PrintError(err)
-
-				defer f.Close()
-
-				result, err := json.Marshal(CleanJSONData)
-				PrintError(err)
-
-				n, err := f.WriteString(string(result))
-				if err != nil {
-					fmt.Println(n, err)
-				}
+			if len(line) == 0 {
+				if err == io.EOF {
+					break
+				}					
 			}
 
-			JSONFix()
-
-			fmt.Println("Checking for duplicate entries")
-			input, err := ioutil.ReadFile(LOGFILENAME)
-			var jsondata []NewJSONData
-			err = json.Unmarshal(input, &jsondata)
-			PrintError(err)
-			cleanedinput := RemoveDuplicateEntries(jsondata, CurrentEntryInfo.EntryCount)
-	
-			result, err := json.Marshal(cleanedinput)
-		
-
-			err = ioutil.WriteFile(LOGFILENAME, result, 0644)
-			PrintError(err)
-
-		} else {
-			fmt.Println("The logs are up-to-date.")
+			var LogEntry NewJSONData
+			err = json.Unmarshal(line, &LogEntry)
+			jsondata = append(jsondata, LogEntry)
+			if err != nil && err != io.EOF {
+				fmt.Println(err)
+			}
 		}
 
-		fmt.Println("Sleeping. Will check again in 1 minute. It is safe kill the program now.")
-		time.Sleep(60 * time.Second)
-		fmt.Println("Out of sleep. Reaching out to API.")
-	}
+		err = ioutil.WriteFile(LOGFILENAME, []byte(""), 0644)
+		PrintError(err)
+		CreateFileIfDoesntExist(LOGFILENAME)
+		f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
+
+		cleanedinput := RemoveDuplicateEntries(jsondata, CurrentEntryInfo.EntryCount)
+	
+		for i := 0; i < len(cleanedinput); i++ {
+			b, _ := json.Marshal(cleanedinput[i])
+			f.Write(b)
+			f.Write([]byte("\n"))
+		}
+	} else {
+		fmt.Println("The logs are up-to-date.")
+	}		
 }
 
-/*
-I'm sure there's a way to prevent this,
-but I have to make the JSON entries are within
-a single [].
-*/
-func JSONFix(){
-	input, err := ioutil.ReadFile(LOGFILENAME)
-	PrintError(err)
-	output := strings.Replace(string(input), "][", ",", -1)
-	err = ioutil.WriteFile(LOGFILENAME, []byte(output), 0644)
+func lineCounter(r io.Reader) (int, error) {
+    buf := make([]byte, 32*1024)
+    count := 0
+    lineSep := []byte{'\n'}
+
+    for {
+        c, err := r.Read(buf)
+        count += bytes.Count(buf[:c], lineSep)
+
+        switch {
+        case err == io.EOF:
+            return count, nil
+
+        case err != nil:
+            return count, err
+        }
+    }
 }
+
+
 
 func PrintError(err error) {
 	if err != nil {

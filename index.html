@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Not RADAR</title>
@@ -13,8 +14,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
 
     <script>
+        function GetData(url, callback) {
+            xmlHttp = new XMLHttpRequest();
+            xmlHttp.onreadystatechange = callback;
+            xmlHttp.open("GET", url, true);
+            xmlHttp.send(null);
+        }
+
         function UpdateChart() {
-            $.getJSON("resources/Logs.json", function (jsonfile) {
+            var jsonfile = [];
+            var jsonfileTop20 = [];
+
+            GetData("resources/Logs.json", function () {
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+                    var result = xmlHttp.responseText;
+                    var allLines = result.split("\n");
+
+                    for (var i = 0; i < allLines.length - 1; i++) {
+                        jsonfile.push(JSON.parse(allLines[i]));
+                    }
+                    for (var i = 0; i < 20; i++) {
+                        jsonfileTop20.push(JSON.parse(allLines[i]));
+                    }
+                }
+
+                jPut.users.data=jsonfileTop20
+                //console.log(jsonfile)
                 var Successes = 0;
                 var Failures = 0;
 
@@ -107,8 +132,10 @@
             return keys.sort(function (a, b) { return obj[b] - obj[a] });
         }
 
-        UpdateChart();
-
+        window.addEventListener("load", function () {
+            UpdateChart();
+            SetupTable();
+        });
     </script>
 </head>
 
@@ -129,7 +156,7 @@
         </div>
 
         <div class="row header" style="text-align:center;color:grey">
-            <h3>ACME Logs</h3>
+            <h3>ACME Logs (First 20)</h3>
         </div>
 
         <table id="myTable" class="display table" width="100%">
@@ -143,7 +170,7 @@
                     <td>EventTime</td>
                 </tr>
             </thead>
-            <tbody jput="users" jput-ajax_url="resources/Logs.json">
+            <tbody jput="users">
                 <tr>
                     <td>{{json.AcmeApiId}}</td>
                     <td>{{json.UserName}}</td>
@@ -156,4 +183,5 @@
         </table>
     </div>
 </body>
+
 </html>
