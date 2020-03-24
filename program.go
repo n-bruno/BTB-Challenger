@@ -34,24 +34,21 @@ type DataPulledFromAPI struct {
 
 //Sanitized datas
 type NewJSONData struct {
-	ID        int    `json:"AcmeApiId"`
-	UserName  string `json:"UserName"`
-	SourceIp  string `json:"SourceIp"`
-	Target    string `json:"Target"`
-	Action    string `json:"Action"`
+	ID        int     `json:"AcmeApiId"`
+	UserName  string  `json:"UserName"`
+	SourceIp  string  `json:"SourceIp"`
+	Target    string  `json:"Target"`
+	Action    string  `json:"Action"`
 	EventTime string  `json:"EventTime"`
 }
 
 func main() {
 	ConnectToAPI()
-	//HostAsServer()
+	HostAsServer()
 }
 
 func HostAsServer() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "index.html")
-	})
-
+	http.Handle("/",  http.FileServer(http.Dir("./")))
     log.Fatal(http.ListenAndServe(":8081", nil))
 
 }
@@ -130,6 +127,7 @@ func ConnectToAPI() {
 	
 			result, err := json.Marshal(cleanedinput)
 		
+
 			err = ioutil.WriteFile(LOGFILENAME, result, 0644)
 			PrintError(err)
 
