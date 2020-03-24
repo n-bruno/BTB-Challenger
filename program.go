@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"time"
 )
@@ -48,11 +47,6 @@ func main() {
 	//HostAsServer()
 }
 
-//Create a struct that holds information to be displayed in our HTML file
-type Welcome struct {
-	Name string
-}
-
 func HostAsServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
@@ -66,93 +60,92 @@ func ConnectToAPI() {
 	APIKey, err := getAPIKey("https://challenger.btbsecurity.com/auth")
 	PrintError(err)
 
-	fmt.Println("Your API Key", APIKey)
+	fmt.Println("Your API Key: ", APIKey)
 
-	CurrentEntryInfo := getEntryCount(APIKey)
 
-	/*
+	for ;; {
 
-	 "pulls all of the latest entries from the API without getting previous retrieved entries (no duplicates)."
+		/*
 
-	 The API returns the value "EntryCount".
-	 With this, we can discover if new logs were generated.
-	 If so, we want to get the latest ones.
+		 "pulls all of the latest entries from the API without getting previous retrieved entries (no duplicates)."
 
-	*/
-	fmt.Println("Reading entry data file.")
+		 The API returns the value "EntryCount".
+		 With this, we can discover if new logs were generated.
+		 If so, we want to get the latest ones.
 
-	PreviousEntryInfoIO, err := ioutil.ReadFile(ENTRYDATAFILENAME)
-	PrintError(err)
-
-	var preventryinfo EntryInformation
-	err = json.Unmarshal(PreviousEntryInfoIO, &preventryinfo)
-	var GetLatestLogs bool
-	GetLatestLogs = false
-
-	if preventryinfo.EntryCount < CurrentEntryInfo.EntryCount {
+		*/
+		CurrentEntryInfo := getEntryCount(APIKey)
+		fmt.Println("Reading entry data file.")
 		CreateFileIfDoesntExist(ENTRYDATAFILENAME)
 
-		file1, _ := json.MarshalIndent(CurrentEntryInfo, "", " ")
-		_ = ioutil.WriteFile(ENTRYDATAFILENAME, file1, 0644)
-		GetLatestLogs = true
-	}
+		PreviousEntryInfoIO, err := ioutil.ReadFile(ENTRYDATAFILENAME)
+		PrintError(err)
 
-	if GetLatestLogs {
-		fmt.Println(fmt.Sprintf("New logs available."))
-		fmt.Println(fmt.Sprintf("Old Count: %v   New Count: %v", preventryinfo.EntryCount, CurrentEntryInfo.EntryCount))
+		var preventryinfo EntryInformation
+		err = json.Unmarshal(PreviousEntryInfoIO, &preventryinfo)
+		var GetLatestLogs bool
+		GetLatestLogs = false
 
-		const NumberOfEntriesToGetAtATime int = 499
-
-		for i := preventryinfo.EntryCount; i < CurrentEntryInfo.EntryCount; i += NumberOfEntriesToGetAtATime {
-			/*
-				This is to offset a bug in the API.
-				All from values over 2000 are decreased.
-				This code offsets it.
-			*/
-
-			fmt.Println(fmt.Sprintf("Reading log id range %v through %v.", i, i+NumberOfEntriesToGetAtATime-1))
-			LogDataJSON := getLogData(APIKey, i, i+NumberOfEntriesToGetAtATime-1)
-			CleanJSONData := cleanData(LogDataJSON)
-
-			CreateFileIfDoesntExist(LOGFILENAME)
-
-			f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
-			PrintError(err)
-
-			defer f.Close()
-
-			result, err := json.Marshal(CleanJSONData)
-			PrintError(err)
-
-			var n int
-			n, err = f.WriteString(string(result))
-			if err != nil {
-				fmt.Println(n, err)
-			}
+		if preventryinfo.EntryCount < CurrentEntryInfo.EntryCount {
+			file1, _ := json.MarshalIndent(CurrentEntryInfo, "", " ")
+			_ = ioutil.WriteFile(ENTRYDATAFILENAME, file1, 0644)
+			GetLatestLogs = true
 		}
 
-		JSONFix()
+		if GetLatestLogs {
+			fmt.Println(fmt.Sprintf("New logs available."))
+			fmt.Println(fmt.Sprintf("Old Count: %v   New Count: %v", preventryinfo.EntryCount, CurrentEntryInfo.EntryCount))
 
-		fmt.Println("Checking for duplicate entries")
-		input, err := ioutil.ReadFile(LOGFILENAME)
-		var jsondata []NewJSONData
-		err = json.Unmarshal(input, &jsondata)
-		PrintError(err)
-		cleanedinput := RemoveDuplicateEntries(jsondata, CurrentEntryInfo.EntryCount)
-	
-		result, err := json.Marshal(cleanedinput)
-	
-		err = ioutil.WriteFile(LOGFILENAME, result, 0644)
-		PrintError(err)
+			const NumberOfEntriesToGetAtATime int = 500
 
-	} else {
-		fmt.Println("The logs are up-to-date.")
+			for i := preventryinfo.EntryCount; i < CurrentEntryInfo.EntryCount; i += NumberOfEntriesToGetAtATime {
+				fmt.Println(fmt.Sprintf("Reading log id range %v through %v.", i, i+NumberOfEntriesToGetAtATime-1))
+				LogDataJSON := getLogData(APIKey, i, i+NumberOfEntriesToGetAtATime-1)
+				CleanJSONData := cleanData(LogDataJSON)
+
+				CreateFileIfDoesntExist(LOGFILENAME)
+
+				f, err := os.OpenFile(LOGFILENAME, os.O_APPEND|os.O_WRONLY, 0600)
+				PrintError(err)
+
+				defer f.Close()
+
+				result, err := json.Marshal(CleanJSONData)
+				PrintError(err)
+
+				n, err := f.WriteString(string(result))
+				if err != nil {
+					fmt.Println(n, err)
+				}
+			}
+
+			JSONFix()
+
+			fmt.Println("Checking for duplicate entries")
+			input, err := ioutil.ReadFile(LOGFILENAME)
+			var jsondata []NewJSONData
+			err = json.Unmarshal(input, &jsondata)
+			PrintError(err)
+			cleanedinput := RemoveDuplicateEntries(jsondata, CurrentEntryInfo.EntryCount)
+	
+			result, err := json.Marshal(cleanedinput)
+		
+			err = ioutil.WriteFile(LOGFILENAME, result, 0644)
+			PrintError(err)
+
+		} else {
+			fmt.Println("The logs are up-to-date.")
+		}
+
+		fmt.Println("Sleeping. Will check again in 1 minute. It is safe kill the program now.")
+		time.Sleep(60 * time.Second)
+		fmt.Println("Out of sleep. Reaching out to API.")
 	}
 }
 
 /*
 I'm sure there's a way to prevent this,
-but I have to make the JSON entries all be within
+but I have to make the JSON entries are within
 a single [].
 */
 func JSONFix(){
@@ -162,28 +155,23 @@ func JSONFix(){
 	err = ioutil.WriteFile(LOGFILENAME, []byte(output), 0644)
 }
 
-
 func PrintError(err error) {
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Sorry! There was an error: ", err)
 	}
 }
 
 func CreateFileIfDoesntExist(filename string) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		emptyFile, err := os.Create(filename)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println(emptyFile)
+		PrintError(err)
 		emptyFile.Close()
 	}
 }
 
 //Get API key from website
 func getAPIKey(url string) (APIKey string, err error) {
-	filename := path.Base(url)
-	fmt.Println("Grabbing API key. ", url, " to ", filename)
+	fmt.Println("Grabbing API key from ", url)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -194,7 +182,6 @@ func getAPIKey(url string) (APIKey string, err error) {
 	//convert readcloser to string
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
-
 	APIKey = buf.String()
 
 	return
@@ -214,7 +201,6 @@ func getEntryCount(APIKey string) (res EntryInformation) {
 	respx, err := client.Do(req)
 
 	if err != nil {
-		//obligated to use variables.
 		fmt.Println("Sorry! There was an error: ", err)
 	} else {
 		/*
@@ -228,9 +214,6 @@ func getEntryCount(APIKey string) (res EntryInformation) {
 		buf.ReadFrom(respx.Body)
 		bytes := []byte(buf.Bytes())
 		json.Unmarshal(bytes, &res)
-
-		//buf.ReadFrom(respx.Body)
-		//fmt.Println("Response as a string: ", buf.String())
 	}
 	return
 }
@@ -252,21 +235,15 @@ func getLogData(APIKey string, To int, From int) (res []DataPulledFromAPI) {
 	if err != nil {
 		fmt.Println("Sorry! There was an error: ", err)
 	} else {
-
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(respx.Body)
 		bytes := []byte(buf.Bytes())
-
 		json.Unmarshal(bytes, &res)
-
-		//buf.ReadFrom(respx.Body)
-		//fmt.Println("Response as a string: ", buf.String())
 	}
 	return
 }
 
 func cleanData(res []DataPulledFromAPI) []NewJSONData {
-
 	/*
 		Golang would allow me to initilize an array with a nonconstant value
 		So I had to "create a slice with make"
@@ -314,7 +291,10 @@ func RemoveDuplicateEntries(res []NewJSONData, maxID int) []NewJSONData {
 			2000 in the API was duplicate, however,
 			the names are different. 
 			I will just remove entries that have 
-			duplicate IDs for now.
+			duplicate IDs anyway.
+
+			Because 2000 is duplicate, I will sometimes grab entries
+			multiple times.
 			*/
 			fmt.Println("Duplicate ID found: ", i)
 		}
@@ -325,7 +305,7 @@ func RemoveDuplicateEntries(res []NewJSONData, maxID int) []NewJSONData {
 	var i int
 	for e := ListNewLogEntries.Front(); e != nil; e = e.Next() {
 
-		if value, ok := e.Value.(NewJSONData); ok {
+		if value, error := e.Value.(NewJSONData); error {
 			NewLogEntries[i]=value
 		} else {
 			fmt.Println("Error with casting! Id number: ", i)

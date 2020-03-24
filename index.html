@@ -13,108 +13,102 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
 
     <script>
-        function UpdateChart(){
-        $.getJSON("resources/Logs.json", function (jsonfile) {
-            var Successes = 0;
-            var Failures = 0;
+        function UpdateChart() {
+            $.getJSON("resources/Logs.json", function (jsonfile) {
+                var Successes = 0;
+                var Failures = 0;
 
-            var UserFailures = new Object();
-            
-            for (var i = 0; i < jsonfile.length; i++) {
-                if (jsonfile[i].Action == "Login Success") {
-                    Successes++;
-                }
-                else if (jsonfile[i].Action == "Login Failure") {
-                    Failures++;
-                    
-                    if (UserFailures[jsonfile[i].UserName] == null) {
-                       UserFailures[jsonfile[i].UserName] = 0;
+                var UserFailures = new Object();
+
+                for (var i = 0; i < jsonfile.length; i++) {
+                    if (jsonfile[i].Action == "Login Success") {
+                        Successes++;
                     }
-                    
-                    UserFailures[jsonfile[i].UserName]++;
-                }
-            }
-            
-            var UserFailuresSort = getSortedKeys(UserFailures);
-            
-            //console.log(UserFailures[UserFailuresSort[1]]);
+                    else if (jsonfile[i].Action == "Login Failure") {
+                        Failures++;
 
-            var ctx = canvas.getContext('2d');
-            var configpie = {
-                type: 'pie',
-                options: {
-					title: {
-						display: true,
-						text: 'Overall Login Failure and Success Count'
-					}
-				},
-                data: {
-                    labels: ['Login Success', 'Login Failure'],
-                    datasets: [{
-                        data: [Successes, Failures],
-                        backgroundColor: ['rgba(0, 11, 204, 0.3)', 'rgba(220, 20, 60, 0.3)']
-                    }]
-                }
-            };
-            
-            
-            var configbar = {
-                type: 'bar',
-                options: {
-					title: {
-						display: true,
-						text: 'Users with the Most Login Failures (And Their Failure Amount)'
-					}
-				},
-                
-                data: {
-                    
-                    labels: [ 'Username' ],
-                    datasets: [
-                        {
-                           label: UserFailuresSort[0],
-                           data: [UserFailures[UserFailuresSort[0]]],
-                           backgroundColor: ['rgba(0, 11, 204, 0.3)' ]
-                        }, {
-                           label: UserFailuresSort[1],
-                           data: [UserFailures[UserFailuresSort[1]]],
-                           backgroundColor: ['rgba(220, 20, 60, 0.3)' ]
-                        }, {
-                           label: UserFailuresSort[2],
-                           data: [UserFailures[UserFailuresSort[2]]],
-                           backgroundColor: ['rgba(44, 12, 204, 0.3)' ]
-                        }, {
-                           label: UserFailuresSort[3],
-                           data: [UserFailures[UserFailuresSort[3]]],
-                           backgroundColor: ['rgba(220, 20, 60, 0.3)' ]
-                        }, {
-                           label: UserFailuresSort[4],
-                           data: [UserFailures[UserFailuresSort[4]]],
-                           backgroundColor: ['rgba(44, 12, 204, 0.3)' ]
+                        if (UserFailures[jsonfile[i].UserName] == null) {
+                            UserFailures[jsonfile[i].UserName] = 0;
                         }
-                        
-                    ], 
+
+                        UserFailures[jsonfile[i].UserName]++;
+                    }
                 }
-                
-            };
 
-            var ctx = document.getElementById('chart-area').getContext('2d');
-            var ctx2 = document.getElementById('chart-area2').getContext('2d');
+                var UserFailuresSort = getSortedKeys(UserFailures);
+                var ctx = canvas.getContext('2d');
+                var configpie = {
+                    type: 'pie',
+                    options: {
+                        title: {
+                            display: true,
+                            text: 'Overall Login Failure and Success Count'
+                        }
+                    },
+                    data: {
+                        labels: ['Login Success', 'Login Failure'],
+                        datasets: [{
+                            data: [Successes, Failures],
+                            backgroundColor: ['rgba(0, 11, 204, 0.3)', 'rgba(220, 20, 60, 0.3)']
+                        }]
+                    }
+                };
 
-            window.myPie = new Chart(ctx, configpie);
-            
-            window.myBar = new Chart(ctx2, configbar);
+                var configbar = {
+                    type: 'bar',
+                    options: {
+                        title: {
+                            display: true,
+                            text: 'Users with the Most Login Failures (And Their Failure Amount)'
+                        }
+                    },
 
-        });
+                    data: {
+
+                        labels: ['Username'],
+                        datasets: [
+                            {
+                                label: UserFailuresSort[0],
+                                data: [UserFailures[UserFailuresSort[0]]],
+                                backgroundColor: ['rgba(0, 11, 204, 0.3)']
+                            }, {
+                                label: UserFailuresSort[1],
+                                data: [UserFailures[UserFailuresSort[1]]],
+                                backgroundColor: ['rgba(220, 20, 60, 0.3)']
+                            }, {
+                                label: UserFailuresSort[2],
+                                data: [UserFailures[UserFailuresSort[2]]],
+                                backgroundColor: ['rgba(44, 12, 204, 0.3)']
+                            }, {
+                                label: UserFailuresSort[3],
+                                data: [UserFailures[UserFailuresSort[3]]],
+                                backgroundColor: ['rgba(220, 20, 60, 0.3)']
+                            }, {
+                                label: UserFailuresSort[4],
+                                data: [UserFailures[UserFailuresSort[4]]],
+                                backgroundColor: ['rgba(44, 12, 204, 0.3)']
+                            }
+
+                        ],
+                    }
+
+                };
+
+                var ctx = document.getElementById('chart-area').getContext('2d');
+                var ctx2 = document.getElementById('chart-area2').getContext('2d');
+
+                window.myPie = new Chart(ctx, configpie);
+                window.myBar = new Chart(ctx2, configbar);
+            });
         }
-        
+
         function getSortedKeys(obj) {
-          var keys = keys = Object.keys(obj);
-          return keys.sort(function(a,b){return obj[b]-obj[a]});
+            var keys = keys = Object.keys(obj);
+            return keys.sort(function (a, b) { return obj[b] - obj[a] });
         }
-        
+
         UpdateChart();
-        
+
     </script>
 </head>
 
@@ -129,11 +123,10 @@
 
             <canvas id="canvas"></canvas>
         </div>
-        
+
         <div id="canvas-holder" style="width:60%">
             <canvas id="chart-area2"></canvas>
         </div>
-        
 
         <div class="row header" style="text-align:center;color:grey">
             <h3>ACME Logs</h3>
