@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/list"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -58,8 +57,6 @@ func ConnectToAPI() {
 	PrintError(err)
 
 	fmt.Println("Your API Key: ", APIKey)
-
-
 
 	/*
 
@@ -293,8 +290,7 @@ func cleanData(res []DataPulledFromAPI) []NewJSONData {
 
 func RemoveDuplicateEntries(res []NewJSONData, maxID int) []NewJSONData {
 	var AlreadyContainsID = make([]bool, maxID)
-
-	ListNewLogEntries := list.New()
+	var NewLogEntries = make([]NewJSONData, 0)
 
 	var uniqueEntries int
 	for i := 0; i < len(res); i++ {
@@ -302,7 +298,7 @@ func RemoveDuplicateEntries(res []NewJSONData, maxID int) []NewJSONData {
 
 		if (AlreadyContainsID[Id] == false){
 			AlreadyContainsID[Id] = true
-			ListNewLogEntries.PushBack(res[i])
+			NewLogEntries = append(NewLogEntries,res[i])
 			uniqueEntries++
 			//fmt.Println("ID found: ", i)
 		} else {
@@ -317,19 +313,6 @@ func RemoveDuplicateEntries(res []NewJSONData, maxID int) []NewJSONData {
 			*/
 			fmt.Println("Duplicate ID found: ", i)
 		}
-	}
-
-	NewLogEntries := make([]NewJSONData, uniqueEntries)
-
-	var i int
-	for e := ListNewLogEntries.Front(); e != nil; e = e.Next() {
-
-		if value, error := e.Value.(NewJSONData); error {
-			NewLogEntries[i]=value
-		} else {
-			fmt.Println("Error with casting! Id number: ", i)
-		}
-		i++
 	}
 
 	return NewLogEntries
